@@ -1,0 +1,47 @@
+version: '3.5'
+
+networks:
+  symfony:
+    driver: bridge
+    ipam:
+      config:
+        -   subnet: '${DOCKER_NETWORK_SUBNET}'
+            gateway: '${DOCKER_NETWORK_GATEWAY}'
+
+services:
+  nginx:
+    image: nginx:stable
+    container_name: symfony-nginx
+    ports:
+      - "${DOCKER_NETWORK_GATEWAY}:${NGINX_PORT}:80"
+    volumes:
+      - ./:/var/www
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d
+      - ./docker/nginx/logs:/var/log/nginx/
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - php
+    networks:
+      - symfony
+
+  php:
+    build:
+      context: ./docker/php
+      dockerfile: Dockerfile
+      args:
+        user: ${USER}
+        uid: ${USER_ID}
+        XDEBUG: ${XDEBUG_ENABLED}
+        XDEBUG_PORT: ${XDEBUG_PORT}
+    working_dir: /var/www
+    container_name: symfony-php
+    environment:
+      PHP_IDE_CONFIG: 'serverName=symfony'
+    volumes:
+      - ./:/var/www
+      - ./docker/php/php.ini:/usr/local/etc/php/php.ini
+#      - ./docker/php/xdebug.ini:/usr/local/etc/php/conf.d/xdebug.ini
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - symfony
